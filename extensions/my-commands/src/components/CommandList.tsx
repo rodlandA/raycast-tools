@@ -3,6 +3,7 @@ import {
   ActionPanel,
   closeMainWindow,
   Color,
+  getPreferenceValues,
   Icon,
   Keyboard,
   launchCommand,
@@ -12,13 +13,30 @@ import {
   Toast,
   useNavigation,
 } from "@raycast/api";
-import { usePromise } from "@raycast/utils";
+import { useCachedPromise } from "@raycast/utils";
+import { useState } from "react";
 import { CustomCommand, listCommands, sectionsOf } from "../lib/commands";
 import { errorMessage, exec } from "../lib/exec";
 import { openInEditor } from "../lib/run";
+import {
+  findScriptFolders,
+  parseFolders,
+  tildePath,
+} from "../lib/scriptFolders";
 import { CommandArgumentsForm } from "./CommandArgumentsForm";
 import { CommandOutput } from "./CommandOutput";
 import { HelperDetail } from "./HelperDetail";
+
+interface Preferences {
+  scriptFolders?: string;
+}
+
+const ALL_FOLDERS = "__all__";
+
+async function resolveFolders(configured: string): Promise<string[]> {
+  const folders = parseFolders(configured);
+  return folders.length > 0 ? folders : findScriptFolders();
+}
 
 function iconFor(command: CustomCommand) {
   if (command.icon !== undefined) {
@@ -46,8 +64,28 @@ function accessories(command: CustomCommand) {
 
 export function CommandList() {
   const { push } = useNavigation();
-  const { data, isLoading, error } = usePromise(listCommands);
-  const commands = data ?? [];
+  const { scriptFolders = "" } = getPreferenceValues<Preferences>();
+  const [folderFilter, setFolderFilter] = useState(ALL_FOLDERS);
+
+  const folders = useCachedPromise(resolveFolders, [scriptFolders], {
+    keepPreviousData: true,
+  });
+  const found = useCachedPromise(listCommands, [folders.data ?? []], {
+    execute: folders.data !== undefined,
+    keepPreviousData: true,
+  });
+
+  const commands = (found.data ?? []).filter(
+    (command) =>
+      folderFilter === ALL_FOLDERS || command.folder === folderFilter,
+  );
+  const isLoading = folders.isLoading || found.isLoading;
+  const error = folders.error ?? found.error;
+
+  function rescan() {
+    folders.revalidate();
+    found.revalidate();
+  }
 
   async function run(command: CustomCommand, args: string[]) {
     if (command.mode !== "silent") {
@@ -70,6 +108,8 @@ export function CommandList() {
     try {
       await launchCommand({
         name: command.extensionCommand ?? "",
+        extensionName: command.extensionName ?? "",
+        ownerOrAuthorName: command.extensionOwner ?? "",
         type: LaunchType.UserInitiated,
       });
     } catch (caught) {
@@ -137,17 +177,57 @@ export function CommandList() {
           />
           <Action.ShowInFinder path={command.path} />
         </ActionPanel.Section>
+        <ActionPanel.Section>
+          <Action
+            title="Rescan Script Folders"
+            icon={Icon.ArrowClockwise}
+            shortcut={Keyboard.Shortcut.Common.Refresh}
+            onAction={rescan}
+          />
+        </ActionPanel.Section>
       </ActionPanel>
     );
   }
 
+  const folderList = folders.data ?? [];
+  const folderDropdown =
+    folderList.length > 1 ? (
+      <List.Dropdown
+        tooltip="Script command folder"
+        value={folderFilter}
+        onChange={setFolderFilter}
+      >
+        <List.Dropdown.Item value={ALL_FOLDERS} title="Everything" />
+        <List.Dropdown.Section title="Script command folders">
+          {folderList.map((folder) => (
+            <List.Dropdown.Item
+              key={folder}
+              value={folder}
+              title={tildePath(folder)}
+            />
+          ))}
+        </List.Dropdown.Section>
+      </List.Dropdown>
+    ) : undefined;
+
   return (
-    <List isLoading={isLoading} searchBarPlaceholder="Filter commands">
+    <List
+      isLoading={isLoading}
+      searchBarPlaceholder="Filter commands"
+      searchBarAccessory={folderDropdown}
+    >
       {error !== undefined && (
         <List.EmptyView
           icon={Icon.Warning}
           title="Could not read the commands"
           description={errorMessage(error)}
+        />
+      )}
+      {error === undefined && !isLoading && commands.length === 0 && (
+        <List.EmptyView
+          icon={Icon.MagnifyingGlass}
+          title="No commands found"
+          description="No script commands under your home folder. If yours live elsewhere, list their folders under Script Command Folders in the preferences."
         />
       )}
       {sectionsOf(commands).map((section) => (

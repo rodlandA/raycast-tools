@@ -1,0 +1,48 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "my-commands",
+  "title": "My Commands",
+  "description": "Every Raycast script command, self-built extension and shell helper you have, in one searchable list",
+  "icon": "command-icon.png",
+  "author": "andreas",
+  "categories": [
+    "Developer Tools"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "my-commands",
+      "title": "My Commands",
+      "description": "Every custom script command, extension command and shell helper, by category",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "scriptFolders",
+      "title": "Script Command Folders",
+      "description": "Leave empty to find them under your home folder automatically. Comma-separated, e.g. ~/.config/raycast/scripts",
+      "type": "textfield",
+      "required": false,
+      "default": ""
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.104.0",
+    "@raycast/utils": "^1.19.1"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.0.4",
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.10",
+    "eslint": "^9.22.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "lint": "ray lint",
+    "fix-lint": "ray lint --fix"
+  }
+}

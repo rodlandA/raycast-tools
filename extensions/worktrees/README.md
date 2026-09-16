@@ -45,13 +45,6 @@ action. Reads `package.json` from the repository root or a `Frontend`/`web`/
 `client`/`app` subdirectory, plus the `*.sh` files at the root and in
 `scripts/`, so each worktree offers its own.
 
-**My Commands** — an index over every Raycast script command grouped by
-`@raycast.packageName`, this extension's own commands, and the helpers in
-`~/.local/bin` that no command calls. It reads the same metadata Raycast does,
-so a new wrapper turns up there on its own, arguments included. Grouping is
-only as good as the package names, so give a new wrapper the same
-`@raycast.packageName` as its neighbours.
-
 **Phone QR** — renders a repository's own `scripts/phone-qr.sh --urls <port>`
 output as QR codes, for opening a running dev stack on a phone. The action only
 appears when the repository actually supplies that script. Raycast markdown

@@ -11,12 +11,6 @@
   "license": "MIT",
   "commands": [
     {
-      "name": "my-commands",
-      "title": "My Commands",
-      "description": "Every custom script command, extension command and shell helper, by category",
-      "mode": "view"
-    },
-    {
       "name": "worktrees",
       "title": "Worktrees",
       "description": "Open, create and remove worktrees",

@@ -76,6 +76,10 @@ if [ "$list" -eq 1 ]; then
     for name in $(extensions); do
         printf '  %-18s %s\n' "$name" "$(extension_summary "$name")"
     done
+    echo
+    echo "Raycast script commands are not installed by this script. Add this folder in"
+    echo "Raycast → Settings → Extensions → Script Commands → Add Directories:"
+    echo "  $ROOT/script-commands"
     exit 0
 fi
 

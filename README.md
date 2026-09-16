@@ -7,6 +7,8 @@ want.
 | Name | Kind | What it does |
 |------|------|--------------|
 | [worktrees](extensions/worktrees) | Raycast extension | Jump between the worktrees of every repository you have, open them, create and remove them |
+| [my-commands](extensions/my-commands) | Raycast extension | Every script command, self-built extension and shell helper you have, in one searchable list |
+| [Claude Panes, Claude Sessions](#raycast-script-commands) | Raycast script commands | `cl` and `claude-sessions` from the Raycast search bar |
 | [cl](#cl) | script | Open an iTerm2 tab split into a grid of panes, each running `claude` |
 | [claude-sessions](#claude-sessions) | script | List the running Claude sessions and where each one works |
 | [iterm-run](#iterm-run) | script | Open an iTerm2 tab in a directory and run a command there |
@@ -30,6 +32,9 @@ The installer never overwrites something already at a target path. It tells you
 what it skipped; `--force` replaces it and keeps a `.bak`. `--dry-run` shows
 what would happen.
 
+The Raycast script commands are not installed this way — see
+[Raycast script commands](#raycast-script-commands).
+
 Make sure `~/.local/bin` is on your `PATH`:
 
 ```bash
@@ -52,6 +57,9 @@ extension hides an action whose helper is missing rather than failing:
   `./install.sh <name>` once to get the link.
 - **An extension:** put the Raycast extension in `extensions/<name>/`. The
   installer finds it by its `package.json` and builds it.
+- **A Raycast script command:** put it in `script-commands/`. Call a script from
+  `bin/` relative to the command's own path, as the existing ones do, so it works
+  without running the installer.
 
 ## cl
 
@@ -130,30 +138,20 @@ already busy would land the text in whatever is running there.
 
 The [worktrees](extensions/worktrees) extension uses this to run a worktree's scripts.
 
-## Using the scripts from Raycast
+## Raycast script commands
 
-All three work as Raycast script commands. Create a file in your script
-commands directory:
+`script-commands/` holds **Claude Panes** and **Claude Sessions**. Raycast reads
+script commands straight from a folder, so there is nothing to install: add
 
-```bash
-#!/bin/bash
-
-# @raycast.schemaVersion 1
-# @raycast.title Claude Sessions
-# @raycast.mode fullOutput
-# @raycast.icon 🧠
-# @raycast.packageName Claude
-
-exec "$HOME/.local/bin/claude-sessions"
+```
+~/Dev/raycast-tools/script-commands
 ```
 
-For `cl`, use `@raycast.mode silent` and pass the preset as an argument:
+under Raycast → Settings → Extensions → Script Commands → Add Directories. A
+`git pull` updates them. They call `cl` and `claude-sessions` from this
+repository's `bin/`, so they work without `./install.sh`.
 
-```bash
-# @raycast.argument1 { "type": "text", "placeholder": "preset", "optional": true }
-
-exec "$HOME/.local/bin/cl" "$1"
-```
+**Claude Panes** takes a `cl` preset or a folder, and optionally a pane count.
 
 ## License
 

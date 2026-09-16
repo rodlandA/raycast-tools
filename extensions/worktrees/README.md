@@ -9,6 +9,8 @@ agents or branches are in flight at once, each in its own checkout.
 ./install.sh worktrees iterm-run   # plus what Run Script needs
 ```
 
+<img src="../../docs/worktrees.png" alt="Worktrees grouped by repository, one with a branch gone tag" width="640">
+
 There is nothing to set up. It finds the folders under your home that hold git
 repositories and offers them in a dropdown in the search bar; the one you pick is
 remembered. Code outside your home folder goes under **Extra Roots** in the
@@ -31,8 +33,12 @@ one whose branch was deleted upstream, which is what a merged branch looks like.
 | New Worktree | ⌘N — created next to the main checkout as `<repo>-<slug>` |
 | Remove Worktree | ⌃X — asks first |
 
+<img src="../../docs/worktrees-actions.png" alt="The actions for a worktree" width="640">
+
 **Run Script** — the same list, but running one of the worktree's npm or shell
 scripts is the main action.
+
+<img src="../../docs/run-script.png" alt="The npm and shell scripts of a worktree" width="640">
 
 **Pull Requests** — pick a repository to see its open pull requests, each tagged
 `passing`, `failing` or `running` from its checks.

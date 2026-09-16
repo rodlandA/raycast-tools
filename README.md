@@ -3,6 +3,11 @@
 Raycast extensions and small scripts for working with many git worktrees and
 Claude Code sessions at once. Take what you want.
 
+<p>
+  <img src="docs/worktrees.png" alt="Worktrees: the worktrees of every repository, grouped by repository" width="49%">
+  <img src="docs/my-commands.png" alt="My Commands: your own script commands in one searchable list" width="49%">
+</p>
+
 | | What it does | Install |
 |---|---|---|
 | **[Worktrees](extensions/worktrees)** | Every worktree of every repository you have, one keystroke from VS Code, a terminal or its pull request | `./install.sh worktrees` |

@@ -1,3 +1,4 @@
+import { Dirent } from "node:fs";
 import { open as openFile, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -7,7 +8,7 @@ import { join, resolve } from "node:path";
 const MARKER = "@raycast.schemaVersion";
 const MAX_DEPTH = 5;
 const PEEK_BYTES = 2048;
-const CONCURRENCY = 64;
+const WORKERS = 16;
 
 const SCRIPT_EXTENSIONS =
   /\.(sh|bash|zsh|py|js|mjs|rb|swift|applescript|php|pl)$/;
@@ -62,24 +63,6 @@ export function parseFolders(value: string | undefined): string[] {
     .map(expandHome);
 }
 
-// Keeps tens of thousands of file peeks from exhausting file descriptors.
-function limiter(max: number) {
-  let active = 0;
-  const waiting: (() => void)[] = [];
-  return async function run<T>(task: () => Promise<T>): Promise<T> {
-    if (active >= max) {
-      await new Promise<void>((release) => waiting.push(release));
-    }
-    active++;
-    try {
-      return await task();
-    } finally {
-      active--;
-      waiting.shift()?.();
-    }
-  };
-}
-
 async function hasMarker(path: string): Promise<boolean> {
   let handle;
   try {
@@ -94,41 +77,77 @@ async function hasMarker(path: string): Promise<boolean> {
   }
 }
 
+async function isScriptCommand(dir: string, entry: Dirent): Promise<boolean> {
+  if (!SCRIPT_EXTENSIONS.test(entry.name)) {
+    return false;
+  }
+  const path = join(dir, entry.name);
+  const isFile =
+    entry.isFile() ||
+    (entry.isSymbolicLink() &&
+      (await stat(path)
+        .then((info) => info.isFile())
+        .catch(() => false)));
+  return isFile && hasMarker(path);
+}
+
 /** Folders under the home folder holding at least one Raycast script command. */
 export async function findScriptFolders(): Promise<string[]> {
-  const limit = limiter(CONCURRENCY);
-  const found = new Set<string>();
+  const found: string[] = [];
+  // A shared stack of folders drained by a fixed number of workers. Walking the
+  // whole tree at once holds every pending folder in memory, which is more than
+  // Raycast's worker heap allows.
+  const pending: { dir: string; depth: number }[] = [
+    { dir: homedir(), depth: 0 },
+  ];
+  let busy = 0;
+  let wake: (() => void)[] = [];
 
-  async function walk(dir: string, depth: number): Promise<void> {
-    const entries = await limit(() =>
-      readdir(dir, { withFileTypes: true }).catch(() => []),
-    );
-    await Promise.all(
-      entries.map(async (entry) => {
-        const path = join(dir, entry.name);
-        // Symlinked directories are not followed, so a link back up cannot loop.
-        if (entry.isDirectory()) {
-          if (depth < MAX_DEPTH && !SKIP.has(entry.name)) {
-            await walk(path, depth + 1);
-          }
-          return;
-        }
-        if (!SCRIPT_EXTENSIONS.test(entry.name) || found.has(dir)) {
-          return;
-        }
-        const isFile =
-          entry.isFile() ||
-          (entry.isSymbolicLink() &&
-            (await stat(path)
-              .then((s) => s.isFile())
-              .catch(() => false)));
-        if (isFile && (await limit(() => hasMarker(path)))) {
-          found.add(dir);
-        }
-      }),
-    );
+  function notify() {
+    const waiting = wake;
+    wake = [];
+    waiting.forEach((resume) => resume());
   }
 
-  await walk(homedir(), 0);
-  return [...found].sort();
+  async function visit(dir: string, depth: number) {
+    const entries = await readdir(dir, { withFileTypes: true }).catch(
+      () => [] as Dirent[],
+    );
+    for (const entry of entries) {
+      // Symlinked directories are not followed, so a link back up cannot loop.
+      if (entry.isDirectory() && depth < MAX_DEPTH && !SKIP.has(entry.name)) {
+        pending.push({ dir: join(dir, entry.name), depth: depth + 1 });
+      }
+    }
+    notify();
+    for (const entry of entries) {
+      if (await isScriptCommand(dir, entry)) {
+        found.push(dir);
+        return;
+      }
+    }
+  }
+
+  async function worker() {
+    for (;;) {
+      const next = pending.pop();
+      if (next === undefined) {
+        if (busy === 0) {
+          return;
+        }
+        await new Promise<void>((resume) => wake.push(resume));
+        continue;
+      }
+      busy++;
+      try {
+        await visit(next.dir, next.depth);
+      } finally {
+        busy--;
+        notify();
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: WORKERS }, worker));
+  return found.sort();
 }

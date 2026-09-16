@@ -8,6 +8,8 @@ the shell helpers in `~/.local/bin` that nothing else calls.
 ./install.sh my-commands   # from the repository root
 ```
 
+<img src="../../docs/my-commands.png" alt="Script commands grouped by package" width="640">
+
 ## What it finds
 
 **Script commands** — Raycast keeps the folders it loads them from in an

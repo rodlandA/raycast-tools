@@ -9,7 +9,8 @@
 #   ./install.sh --list          what there is to install
 #
 # A script is symlinked into ~/.local/bin, so a git pull updates it in place.
-# An extension is built into Raycast, so rerun this after a pull to update it.
+# An extension is built and registered with Raycast, which has to be running;
+# rerun this after a pull to update it.
 # Anything already at a target path is left alone unless --force, which keeps
 # a .bak.
 
@@ -130,7 +131,7 @@ link_script() {
 }
 
 build_extension() {
-    local name=$1 dir="$EXTENSIONS_DIR/$1" log
+    local name=$1 dir="$EXTENSIONS_DIR/$1" log pid tries
 
     if ! command -v npm >/dev/null 2>&1; then
         echo "skipped  $name — npm is not installed"
@@ -142,12 +143,35 @@ build_extension() {
     [ "$dry" -eq 1 ] && return
 
     log=$(mktemp "${TMPDIR:-/tmp}/raycast-tools-$name.XXXXXX")
-    if (cd "$dir" && npm install --no-fund --no-audit && npx ray build) >"$log" 2>&1; then
+    if ! (cd "$dir" && npm install --no-fund --no-audit) >"$log" 2>&1; then
+        echo "failed   $name — see $log"
+        failed=1
+        return
+    fi
+
+    # ray build only writes files. Raycast registers an extension it has not seen
+    # before when ray develop starts, so run that until the build is in, then stop it.
+    set -m
+    (cd "$dir" && exec npx ray develop --non-interactive) >>"$log" 2>&1 &
+    pid=$!
+    set +m
+
+    tries=0
+    while [ "$tries" -lt 240 ] && kill -0 "$pid" 2>/dev/null; do
+        grep -q "built extension successfully" "$log" && break
+        sleep 0.5
+        tries=$((tries + 1))
+    done
+
+    if grep -q "built extension successfully" "$log"; then
+        sleep 3
         rm -f "$log"
     else
         echo "failed   $name — see $log"
         failed=1
     fi
+    kill -- "-$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
 }
 
 linked=0

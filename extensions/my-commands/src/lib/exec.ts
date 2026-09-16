@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { promisify } from "node:util";
 
@@ -23,14 +24,28 @@ export async function exec(
   args: string[],
   cwd?: string,
 ): Promise<string> {
+  // A missing cwd fails with the same ENOENT as a missing program, so rule it out first.
+  if (cwd !== undefined && !existsSync(cwd)) {
+    throw new Error(`${cwd} no longer exists`);
+  }
   const { stdout } = await execFileAsync(file, args, { cwd, env: execEnv });
   return stdout;
 }
 
+interface ExecError extends Error {
+  stderr?: string;
+  code?: string;
+  syscall?: string;
+  path?: string;
+}
+
 export function errorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    const stderr = (error as Error & { stderr?: string }).stderr;
-    return (stderr?.trim() || error.message).split("\n")[0];
+  if (!(error instanceof Error)) {
+    return String(error);
   }
-  return String(error);
+  const { stderr, code, syscall, path } = error as ExecError;
+  if (code === "ENOENT" && syscall?.startsWith("spawn") && path !== undefined) {
+    return `${path} is not installed`;
+  }
+  return (stderr?.trim() || error.message).split("\n")[0];
 }

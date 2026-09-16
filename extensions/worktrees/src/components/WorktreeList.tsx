@@ -73,7 +73,15 @@ export function WorktreeList({ mode }: { mode: Mode }) {
       style: Toast.Style.Animated,
       title: "Looking for a pull request",
     });
-    const url = await pullRequestUrl(worktree.path);
+    let url: string | null;
+    try {
+      url = await pullRequestUrl(worktree.path);
+    } catch (error) {
+      toast.style = Toast.Style.Failure;
+      toast.title = "Could not look up the pull request";
+      toast.message = errorMessage(error);
+      return;
+    }
     if (url === null) {
       toast.style = Toast.Style.Failure;
       toast.title = `No pull request for ${worktree.branch}`;

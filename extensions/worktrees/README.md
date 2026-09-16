@@ -46,7 +46,7 @@ scripts is the main action.
 **Phone QR** — QR codes for opening a worktree's running dev server on a phone.
 Only shown for repositories that provide a `scripts/phone-qr.sh`.
 
-## Actions that need a script
+## What the actions need
 
 | Action | Needs | Without it |
 |--------|-------|------------|
@@ -54,6 +54,8 @@ Only shown for repositories that provide a `scripts/phone-qr.sh`.
 | Review Changes | a `git-review` script of your own — not included | hidden |
 | Run Script | [`iterm-run`](../../bin/README.md#iterm-run) | says it is missing |
 | Open in Terminal | [`iterm-run`](../../bin/README.md#iterm-run) | opens Terminal.app instead of iTerm |
+| Open in VS Code | the `code` command | shows an error |
+| Open Pull Request, Pull Requests | [`gh`](https://cli.github.com), logged in | shows an error |
 
 ## Developing
 

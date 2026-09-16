@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { basename, resolve } from "node:path";
-import { exec } from "./exec";
+import { errorMessage, exec } from "./exec";
 
 export interface Worktree {
   path: string;
@@ -109,8 +109,12 @@ export async function pullRequestUrl(
       worktreePath,
     );
     return stdout.trim() || null;
-  } catch {
-    return null;
+  } catch (error) {
+    // gh exits non-zero both for a branch without a pull request and when it cannot run at all.
+    if (errorMessage(error).startsWith("no pull requests found")) {
+      return null;
+    }
+    throw error;
   }
 }
 

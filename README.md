@@ -45,8 +45,15 @@ and pick `~/Dev/raycast-tools/script-commands`.
 
 ### Requirements
 
-macOS and Raycast. The extensions need Node and npm; `cl` and `iterm-run` need
-iTerm2. Scripts go in `~/.local/bin`, which has to be on your `PATH`.
+macOS and Raycast, which has to be running while you install. The extensions
+need Node and npm; `cl` and `iterm-run` need iTerm2. Scripts go in
+`~/.local/bin`, which has to be on your `PATH`.
+
+Worktrees also uses two command-line tools you may not have yet:
+
+- [`gh`](https://cli.github.com), logged in with `gh auth login`, for pull requests
+- `code`, for opening VS Code — in VS Code, run **Shell Command: Install 'code'
+  command in PATH** from the command palette
 
 Some parts are better together: **Run Script** in Worktrees needs `iterm-run`,
 and **Open Claude Panes** needs `cl`.

@@ -39,7 +39,7 @@ done
 scripts() {
     local f
     for f in "$BIN_DIR"/*; do
-        [ -f "$f" ] && basename "$f"
+        [ -f "$f" ] && [ -x "$f" ] && basename "$f"
     done
 }
 
@@ -84,7 +84,7 @@ if [ "$list" -eq 1 ]; then
 fi
 
 for name in $wanted; do
-    if [ ! -f "$BIN_DIR/$name" ] && [ ! -f "$EXTENSIONS_DIR/$name/package.json" ]; then
+    if [ ! -x "$BIN_DIR/$name" ] && [ ! -f "$EXTENSIONS_DIR/$name/package.json" ]; then
         echo "install: nothing called '$name' — see ./install.sh --list" >&2
         exit 1
     fi

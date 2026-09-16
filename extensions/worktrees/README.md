@@ -1,90 +1,60 @@
 # Worktrees
 
-Raycast extension for jumping between the git worktrees of a repository —
-useful when several agents or branches are in flight at once and each has its
-own checkout.
+Every git worktree of every repository you have, grouped by repository and one
+keystroke away from VS Code, a terminal or its pull request. Useful when several
+agents or branches are in flight at once, each in its own checkout.
 
-No setup: it finds the folders under your home that hold git repositories and
-lists their worktrees, grouped by repository. Pick where to look from the
-dropdown in the search bar — the choice is remembered. New worktrees are created
-next to the main checkout as `<repo>-<slug>`.
+```bash
+./install.sh worktrees             # from the repository root
+./install.sh worktrees iterm-run   # plus what Run Script needs
+```
 
-Code outside your home folder, such as on an external volume, goes under **Extra
-Roots** in the preferences.
+There is nothing to set up. It finds the folders under your home that hold git
+repositories and offers them in a dropdown in the search bar; the one you pick is
+remembered. Code outside your home folder goes under **Extra Roots** in the
+preferences.
 
 ## Commands
 
-**Worktrees** — every worktree of the repository, with the branch as accessory
-and a red `branch gone` tag when the upstream has been deleted, which is what a
-merged branch looks like locally.
+**Worktrees** — open, create and remove worktrees. A red `branch gone` tag marks
+one whose branch was deleted upstream, which is what a merged branch looks like.
 
 | Action | Shortcut |
 |--------|----------|
 | Open in VS Code | ⏎ |
-| Open in Terminal | ⌘⏎ (Raycast assigns it to the second action) |
-| Open Claude Panes | ⌘⇧⏎ — needs `cl` |
-| Run Script… | in the panel |
-| Review Changes | ⌘⇧R — needs `git-review` |
-| Open Pull Request | ⌘O — resolved with `gh`, opened in the default browser |
+| Open in Terminal | ⌘⏎ |
+| Open Claude Panes | ⌘⇧⏎ |
+| Run Script… | |
+| Review Changes | ⌘⇧R |
+| Open Pull Request | ⌘O |
 | Copy Path | ⌘⇧C |
-| New Worktree | ⌘N |
-| Remove Worktree | ⌃X, confirms first |
+| New Worktree | ⌘N — created next to the main checkout as `<repo>-<slug>` |
+| Remove Worktree | ⌃X — asks first |
 
-Creating and removing worktrees lives in the same command as opening them, on
-purpose: one place that knows about worktrees rather than three commands to
-remember.
+**Run Script** — the same list, but running one of the worktree's npm or shell
+scripts is the main action.
 
-**Pull Requests** — pick a repository, then its open pull requests with a
-`passing` / `failing` / `running`
-tag rolled up from all their checks. "Show Checks" lists each check and its
-result, so a red tag doesn't mean a trip to the browser to find out which one
-broke.
+**Pull Requests** — pick a repository to see its open pull requests, each tagged
+`passing`, `failing` or `running` from its checks.
 
-**Run Script** — the same worktree list, but starting a script is the primary
-action. Reads `package.json` from the repository root or a `Frontend`/`web`/
-`client`/`app` subdirectory, plus the `*.sh` files at the root and in
-`scripts/`, so each worktree offers its own.
+**Phone QR** — QR codes for opening a worktree's running dev server on a phone.
+Only shown for repositories that provide a `scripts/phone-qr.sh`.
 
-**Phone QR** — renders a repository's own `scripts/phone-qr.sh --urls <port>`
-output as QR codes, for opening a running dev stack on a phone. The action only
-appears when the repository actually supplies that script. Raycast markdown
-ignores `file://` images, so the PNGs are written to
-`~/Library/Caches/worktrees-phone-qr/` and referenced by tilde path.
+## Actions that need a script
 
-## Optional helpers
-
-Three actions shell out to helpers in `~/.local/bin`, and each is **hidden when
-its helper is not installed** rather than left to fail:
-
-| Helper | Gives you |
-|--------|-----------|
-| `cl` | Open Claude Panes — a grid of iTerm2 panes running `claude` |
-| `git-review` | Review Changes — the branch's cumulative diff against its merge-base |
-| `iterm-run` | Running a script in a new iTerm tab |
-
-Without `iterm-run`, "Open in Terminal" falls back to Terminal.app, but Run
-Script needs it — there is no way to send a command to a tab without it.
-
-`cl` and `iterm-run` are in [this repository](../../README.md) — install them by name alongside the extension.
-
-## Install
-
-From the root of this repository:
-
-```bash
-./install.sh worktrees            # the extension on its own
-./install.sh worktrees iterm-run  # plus what Run Script needs
-```
-
-See the [repository README](../../README.md) for the rest.
+| Action | Needs | Without it |
+|--------|-------|------------|
+| Open Claude Panes | [`cl`](../../bin/README.md#cl) | hidden |
+| Review Changes | a `git-review` script of your own — not included | hidden |
+| Run Script | [`iterm-run`](../../bin/README.md#iterm-run) | says it is missing |
+| Open in Terminal | [`iterm-run`](../../bin/README.md#iterm-run) | opens Terminal.app instead of iTerm |
 
 ## Developing
 
-Use `npm run dev` while editing — it hot-reloads and streams errors into the
-Raycast window.
+`npm run dev` hot-reloads into Raycast and shows errors there.
 
-## Notes
-
-Raycast starts the extension with a minimal `PATH`, so `src/lib/exec.ts` sets
-one that covers `/usr/local/bin` and `~/.local/bin`. Without it `git`, `gh`,
-`code` and the helpers are all "not found".
+Raycast starts an extension with a minimal `PATH`, so `src/lib/exec.ts` sets one
+that covers `/opt/homebrew/bin`, `/usr/local/bin` and `~/.local/bin` — without
+it `git`, `gh` and `code` are not found. Phone QR writes its images to
+`~/Library/Caches/worktrees-phone-qr/`, because Raycast markdown ignores
+`file://` images.

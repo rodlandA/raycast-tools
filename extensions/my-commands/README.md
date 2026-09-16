@@ -4,6 +4,10 @@ A Raycast extension that lists everything you have made for yourself in one
 searchable place: your script commands, the extensions you built locally, and
 the shell helpers in `~/.local/bin` that nothing else calls.
 
+```bash
+./install.sh my-commands   # from the repository root
+```
+
 ## What it finds
 
 **Script commands** — Raycast keeps the folders it loads them from in an
@@ -29,14 +33,6 @@ lives in a folder named after the extension.
 **Shell helpers** — executable scripts in `~/.local/bin`, following symlinks. A
 helper that a script command calls is plumbing and is hidden; so are compiled
 programs and backup files.
-
-## Install
-
-From the root of this repository:
-
-```bash
-./install.sh my-commands
-```
 
 ## Developing
 

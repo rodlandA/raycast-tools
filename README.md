@@ -157,5 +157,4 @@ exec "$HOME/.local/bin/cl" "$1"
 
 ## License
 
-No license is granted. You are welcome to install and use these tools, but not
-to redistribute them or copy them into other projects.
+[MIT](LICENSE)

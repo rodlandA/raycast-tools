@@ -8,6 +8,7 @@
   "categories": [
     "Developer Tools"
   ],
+  "license": "MIT",
   "commands": [
     {
       "name": "my-commands",
@@ -67,7 +68,7 @@
   "scripts": {
     "build": "ray build",
     "dev": "ray develop",
-    "lint": "eslint src && prettier --check src",
-    "fix-lint": "eslint --fix src && prettier --write src"
+    "lint": "ray lint",
+    "fix-lint": "ray lint --fix"
   }
 }

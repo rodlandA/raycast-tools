@@ -1,25 +1,57 @@
-# raycast-scripts
+# raycast-tools
 
-Shell helpers for working with several Claude Code sessions at once on macOS:
-one to start a grid of them, one to see which are running, and one to open an
-iTerm tab anywhere.
+Raycast extensions and shell helpers for working with several git worktrees and
+Claude Code sessions at once on macOS. Take all of it, or only the parts you
+want.
+
+| Name | Kind | What it does |
+|------|------|--------------|
+| [worktrees](extensions/worktrees) | Raycast extension | Jump between the worktrees of every repository you have, open them, create and remove them |
+| [cl](#cl) | script | Open an iTerm2 tab split into a grid of panes, each running `claude` |
+| [claude-sessions](#claude-sessions) | script | List the running Claude sessions and where each one works |
+| [iterm-run](#iterm-run) | script | Open an iTerm2 tab in a directory and run a command there |
 
 ## Install
 
 ```bash
-git clone https://github.com/rodlandA/raycast-scripts ~/Dev/raycast-scripts
-~/Dev/raycast-scripts/install.sh
+git clone https://github.com/rodlandA/raycast-tools ~/Dev/raycast-tools
+cd ~/Dev/raycast-tools
+
+./install.sh --list              # what there is
+./install.sh                     # everything
+./install.sh worktrees iterm-run # or only what you want
 ```
 
-The installer symlinks `bin/*` into `~/.local/bin`, so a `git pull` updates the
-commands in place. It refuses to overwrite a regular file and tells you which,
-rather than clobbering something you wrote yourself.
+Scripts are symlinked into `~/.local/bin`, so a `git pull` updates them in place.
+Extensions are built into Raycast, which needs Node and npm — rerun
+`./install.sh` with the same names after a pull to rebuild them.
+
+The installer never overwrites something already at a target path. It tells you
+what it skipped; `--force` replaces it and keeps a `.bak`. `--dry-run` shows
+what would happen.
 
 Make sure `~/.local/bin` is on your `PATH`:
 
 ```bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 ```
+
+### What depends on what
+
+Nothing is required, but some parts get better together. The **worktrees**
+extension hides an action whose helper is missing rather than failing:
+
+- **Run Script** needs `iterm-run`
+- **Open Claude Panes** needs `cl`
+- **Review Changes** needs a `git-review` helper, which is not in this repository
+
+## Adding something
+
+- **A script:** put an executable file in `bin/`. Its first comment line after
+  the shebang is what `--list` shows. Commit and push; colleagues pull and run
+  `./install.sh <name>` once to get the link.
+- **An extension:** put the Raycast extension in `extensions/<name>/`. The
+  installer finds it by its `package.json` and builds it.
 
 ## cl
 
@@ -96,9 +128,9 @@ Each argument is quoted separately, so a pipeline or `&&` has to go through
 `sh -c`. Every call gets a fresh tab on purpose: writing into a session that is
 already busy would land the text in whatever is running there.
 
-The [Worktrees](https://github.com/rodlandA/raycast-worktrees) Raycast extension uses this to run a worktree's scripts.
+The [worktrees](extensions/worktrees) extension uses this to run a worktree's scripts.
 
-## Raycast
+## Using the scripts from Raycast
 
 All three work as Raycast script commands. Create a file in your script
 commands directory:

@@ -154,3 +154,8 @@ For `cl`, use `@raycast.mode silent` and pass the preset as an argument:
 
 exec "$HOME/.local/bin/cl" "$1"
 ```
+
+## License
+
+No license is granted. You are welcome to install and use these tools, but not
+to redistribute them or copy them into other projects.

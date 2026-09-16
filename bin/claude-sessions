@@ -1,0 +1,25 @@
+#!/bin/bash
+#
+# List running Claude CLI sessions and the directory each one works in.
+#
+# Usage: claude-sessions
+#
+# The process name is just "claude", so match it exactly — a loose match also
+# catches Claude.app's helpers and the shells that launched the sessions.
+
+set -u
+
+found=0
+for pid in $(pgrep -x claude); do
+  cwd=$(lsof -a -d cwd -p "$pid" -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)
+  elapsed=$(ps -o etime= -p "$pid" 2>/dev/null | tr -d ' ')
+  printf "%-8s %-10s %s\n" "$pid" "${elapsed:-?}" "${cwd:-unknown}"
+  found=$((found + 1))
+done
+
+if [ "$found" -eq 0 ]; then
+  echo "No Claude sessions running"
+else
+  echo
+  echo "$found session(s). Use Kill Process to end one."
+fi

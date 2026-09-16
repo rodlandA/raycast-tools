@@ -1,0 +1,388 @@
+#!/usr/bin/env zsh
+#
+# cl — open a grid of iTerm2 panes in a project directory, each running claude.
+#
+#   cl                    4 panes in the current directory
+#   cl myrepo             preset: directory + pane count from the config file
+#   cl myrepo 6           preset directory, 6 panes
+#   cl ~/Dev/animals 2    2 panes in an arbitrary directory
+#   cl --list             show registered presets and aliases
+#   cl myrepo --new       force a new tab instead of reusing the open one
+#   cl myrepo --dry-run   print what would happen, run nothing
+#
+# Presets live in ~/.config/cl/projects.zsh
+
+emulate -L zsh
+setopt err_return no_unset pipe_fail
+
+typeset -g CL_CONFIG_DIR=${XDG_CONFIG_HOME:-$HOME/.config}/cl
+typeset -g CL_CONFIG=$CL_CONFIG_DIR/projects.zsh
+typeset -g CL_STATE_DIR=${XDG_STATE_HOME:-$HOME/.local/state}/cl
+typeset -g CL_STATE=$CL_STATE_DIR/tabs
+typeset -g CL_DEFAULT_PANES=4
+typeset -g CL_MAX_PANES=16
+typeset -g CL_DEFAULT_COMMAND=claude
+typeset -g CL_MAX_ALIAS_HOPS=10
+typeset -gA CL_DIRS CL_SPECS CL_ALIASES
+
+cl_die() {
+  print -ru2 -- "cl: $*"
+  exit 1
+}
+
+cl_expand_tilde() {
+  local p=$1
+  if [[ $p == '~' || $p == '~/'* ]]; then
+    p=$HOME${p#\~}
+  fi
+  print -r -- $p
+}
+
+# Registers a preset. Called from the config file.
+#
+#   cl_project <name> <dir>                 default pane count
+#   cl_project <name> <dir> <n>             n panes, all running claude
+#   cl_project <name> <dir> <cmd> <cmd> ... one pane per command
+cl_project() {
+  if (( $# < 2 )); then
+    print -ru2 -- "cl: cl_project needs at least <name> <dir>"
+    return 1
+  fi
+  local name=$1
+  local dir=$(cl_expand_tilde $2)
+  shift 2
+
+  CL_DIRS[$name]=$dir
+  if (( $# == 0 )); then
+    CL_SPECS[$name]=$CL_DEFAULT_PANES
+  elif (( $# == 1 )) && [[ $1 == <-> ]]; then
+    CL_SPECS[$name]=$1
+  else
+    CL_SPECS[$name]=${(pj:\n:)@}
+  fi
+}
+
+# Points one name at another, so the target can be repointed in one word.
+#
+#   cl_alias dev myrepo
+cl_alias() {
+  if (( $# != 2 )); then
+    print -ru2 -- "cl: cl_alias needs <name> <target>"
+    return 1
+  fi
+  CL_ALIASES[$1]=$2
+}
+
+# Follows an alias chain to the preset it ends at.
+cl_resolve() {
+  local name=$1 hops=0
+  while [[ -n ${CL_ALIASES[$name]:-} ]]; do
+    if (( ++hops > CL_MAX_ALIAS_HOPS )); then
+      print -ru2 -- "cl: alias loop starting at '$1'"
+      return 1
+    fi
+    name=${CL_ALIASES[$name]}
+  done
+  print -r -- $name
+}
+
+cl_write_default_config() {
+  mkdir -p $CL_CONFIG_DIR
+  cat > $CL_CONFIG <<'EOF'
+# cl presets — sourced by ~/.local/bin/cl
+#
+#   cl_project <name> <dir>                 default pane count
+#   cl_project <name> <dir> <n>             n panes, all running claude
+#   cl_project <name> <dir> <cmd> <cmd> ... one pane per command
+#   cl_alias   <name> <target>              point one name at another
+
+cl_project myrepo ~/Dev/myrepo 4
+
+# Repoint these two as you move between projects.
+cl_alias dev myrepo
+EOF
+  print -ru2 -- "cl: created $CL_CONFIG"
+}
+
+cl_load_config() {
+  [[ -f $CL_CONFIG ]] || cl_write_default_config
+  source $CL_CONFIG
+}
+
+cl_state_get() {
+  [[ -f $CL_STATE ]] || return 0
+  local key value
+  while IFS=$'\t' read -r key value; do
+    [[ $key == $1 ]] && { print -r -- $value; return 0 }
+  done < $CL_STATE
+  return 0
+}
+
+cl_state_set() {
+  mkdir -p $CL_STATE_DIR
+  local key=$1 value=$2 tmp=$CL_STATE.$$
+  : > $tmp
+  if [[ -f $CL_STATE ]]; then
+    local k v
+    while IFS=$'\t' read -r k v; do
+      [[ -n $k && -n $v && $k != $key ]] && print -r -- "$k"$'\t'"$v" >> $tmp
+    done < $CL_STATE
+  fi
+  print -r -- "$key"$'\t'"$value" >> $tmp
+  mv -f $tmp $CL_STATE
+}
+
+cl_list() {
+  local name spec panes target
+  if (( ${#CL_DIRS} )); then
+    print -r -- "Presets in $CL_CONFIG:"
+    local -a spec_cmds
+    for name in ${(ok)CL_DIRS}; do
+      spec=${CL_SPECS[$name]}
+      if [[ $spec == <-> ]]; then
+        panes="$spec pane${${spec:#1}:+s}"
+      else
+        spec_cmds=("${(@f)spec}")
+        panes="${#spec_cmds} pane${${${#spec_cmds}:#1}:+s} (custom)"
+      fi
+      printf '  %-14s %-40s %s\n' $name ${CL_DIRS[$name]} $panes
+    done
+  else
+    print -r -- "No presets in $CL_CONFIG"
+  fi
+
+  if (( ${#CL_ALIASES} )); then
+    print -r --
+    print -r -- "Aliases:"
+    for name in ${(ok)CL_ALIASES}; do
+      target=$(cl_resolve $name) || target="(loop)"
+      if [[ -n ${CL_DIRS[$target]:-} ]]; then
+        printf '  %-14s -> %s\n' $name $target
+      else
+        printf '  %-14s -> %s (no such preset)\n' $name $target
+      fi
+    done
+  fi
+}
+
+cl_usage() {
+  print -r -- "Usage: cl [preset|directory] [panes] [--new] [--list] [--dry-run]"
+  print -r --
+  print -r -- "  cl                    $CL_DEFAULT_PANES panes in the current directory"
+  print -r -- "  cl myrepo             preset directory and pane count"
+  print -r -- "  cl myrepo 6           preset directory, 6 panes"
+  print -r -- "  cl ~/Dev/animals 2    2 panes in an arbitrary directory"
+  print -r -- "  cl --list             show registered presets and aliases"
+  print -r -- "  cl myrepo --new       force a new tab instead of reusing the open one"
+  print -r -- "  cl myrepo --dry-run   print what would happen, run nothing"
+  print -r --
+  print -r -- "Presets: $CL_CONFIG"
+}
+
+# Number of columns for an n-pane grid: the smallest c where c*c >= n.
+cl_columns() {
+  local n=$1 c=1
+  while (( c * c < n )); do
+    (( c++ ))
+  done
+  print -r -- $c
+}
+
+cl_as_escape() {
+  local s=$1
+  s=${s//\\/\\\\}
+  s=${s//\"/\\\"}
+  print -r -- $s
+}
+
+# Selects the tab holding the given session id. Prints "ok" when it found it,
+# "gone" when that session no longer exists.
+cl_focus_script() {
+  local id=$(cl_as_escape $1)
+  print -r -- 'tell application "iTerm2"
+  repeat with w in windows
+    repeat with t in tabs of w
+      repeat with s in sessions of t
+        if (id of s) is "'$id'" then
+          activate
+          select w
+          tell w to select t
+          return "ok"
+        end if
+      end repeat
+    end repeat
+  end repeat
+  return "gone"
+end tell'
+}
+
+# Emits AppleScript that opens a tab, splits it into a grid, and writes one
+# command per pane. Panes are numbered column-major: s1 is top-left, and the
+# numbering runs down each column before moving right. Returns the id of s1 so
+# the tab can be found again on the next run.
+cl_build_applescript() {
+  local dir=$1 label=$2
+  shift 2
+  local -a cmds=("$@")
+  local n=$#cmds
+
+  local cols=$(cl_columns $n)
+  local base=$(( n / cols )) rem=$(( n % cols ))
+  local -a rows starts
+  local c i start=1
+  for (( c = 1; c <= cols; c++ )); do
+    rows[c]=$(( base + (c <= rem ? 1 : 0) ))
+    starts[c]=$start
+    (( start += rows[c] ))
+  done
+
+  local -a script
+  script+='tell application "iTerm2"'
+  script+='  activate'
+  script+='  if (count of windows) = 0 then'
+  script+='    set theWindow to (create window with default profile)'
+  script+='    set theTab to current tab of theWindow'
+  script+='  else'
+  script+='    tell current window'
+  script+='      set theTab to (create tab with default profile)'
+  script+='    end tell'
+  script+='  end if'
+  script+='  set s1 to current session of theTab'
+
+  for (( c = 2; c <= cols; c++ )); do
+    script+="  tell s${starts[c-1]}"
+    script+="    set s${starts[c]} to (split vertically with default profile)"
+    script+='  end tell'
+  done
+
+  for (( c = 1; c <= cols; c++ )); do
+    for (( i = 1; i < rows[c]; i++ )); do
+      script+="  tell s$(( starts[c] + i - 1 ))"
+      script+="    set s$(( starts[c] + i )) to (split horizontally with default profile)"
+      script+='  end tell'
+    done
+  done
+
+  local quoted_dir=$(cl_as_escape ${(q)dir})
+  for (( i = 1; i <= n; i++ )); do
+    script+="  tell s$i"
+    script+="    write text \"cd -- $quoted_dir && $(cl_as_escape ${cmds[i]})\""
+    script+='  end tell'
+  done
+
+  script+="  tell s1 to set name to \"$(cl_as_escape $label)\""
+  script+='  return (id of s1)'
+  script+='end tell'
+
+  print -rl -- $script
+}
+
+cl_main() {
+  local -a positional
+  local dry=0 list=0 force_new=0
+
+  while (( $# )); do
+    case $1 in
+      -h|--help)    cl_usage; return 0 ;;
+      -l|--list)    list=1 ;;
+      -n|--dry-run) dry=1 ;;
+      -N|--new)     force_new=1 ;;
+      --)           shift; positional+=("$@"); break ;;
+      -*)           cl_die "unknown option: $1" ;;
+      *)            positional+=($1) ;;
+    esac
+    shift
+  done
+
+  cl_load_config
+  if (( list )); then
+    cl_list
+    return 0
+  fi
+
+  local target=${positional[1]:-} count=${positional[2]:-}
+  if [[ -n $count && $count != <-> ]]; then
+    cl_die "pane count must be a number, got: $count"
+  fi
+
+  local dir label key n
+  local -a cmds
+
+  if [[ -z $target ]]; then
+    dir=${PWD:A}
+    label=${dir:t}
+    key="dir:$dir"
+    n=${count:-$CL_DEFAULT_PANES}
+  else
+    local resolved
+    resolved=$(cl_resolve $target) || exit 1
+    if [[ -n ${CL_DIRS[$resolved]:-} ]]; then
+      dir=${CL_DIRS[$resolved]}
+      label=$resolved
+      key="preset:$resolved"
+      local spec=${CL_SPECS[$resolved]}
+      if [[ $spec == <-> ]]; then
+        n=${count:-$spec}
+      else
+        cmds=("${(@f)spec}")
+        n=${count:-$#cmds}
+      fi
+    else
+      local candidate=$(cl_expand_tilde $target)
+      if [[ ! -d $candidate ]]; then
+        if [[ $resolved != $target ]]; then
+          print -ru2 -- "cl: alias '$target' points at '$resolved', which is not a preset"
+        else
+          print -ru2 -- "cl: no preset or directory named '$target'"
+        fi
+        cl_list >&2
+        exit 1
+      fi
+      dir=${candidate:A}
+      label=${dir:t}
+      key="dir:$dir"
+      n=${count:-$CL_DEFAULT_PANES}
+    fi
+  fi
+
+  (( n >= 1 )) || cl_die "pane count must be at least 1"
+  (( n <= CL_MAX_PANES )) || cl_die "pane count $n exceeds the maximum of $CL_MAX_PANES"
+  [[ -d $dir ]] || cl_die "directory does not exist: $dir"
+
+  # A count override on a command-list preset takes the first n commands and
+  # pads with the default command when it asks for more panes than are listed.
+  local i
+  for (( i = ${#cmds} + 1; i <= n; i++ )); do
+    cmds[i]=$CL_DEFAULT_COMMAND
+  done
+  cmds=(${cmds[1,n]})
+
+  local script=$(cl_build_applescript $dir $label $cmds)
+
+  if (( dry )); then
+    local known=$(cl_state_get $key)
+    print -r -- "directory: $dir"
+    print -r -- "tab label: $label"
+    print -r -- "tab key:   $key"
+    print -r -- "known tab: ${known:-none}"
+    print -r -- "panes:     $n"
+    for (( i = 1; i <= n; i++ )); do
+      print -r -- "  s$i: ${cmds[i]}"
+    done
+    print -r --
+    print -r -- $script
+    return 0
+  fi
+
+  if (( ! force_new )); then
+    local known=$(cl_state_get $key)
+    if [[ -n $known ]] && [[ $(osascript -e "$(cl_focus_script $known)") == ok ]]; then
+      return 0
+    fi
+  fi
+
+  local session_id=$(osascript -e $script)
+  [[ -n $session_id ]] && cl_state_set $key $session_id
+}
+
+cl_main "$@"

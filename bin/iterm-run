@@ -1,0 +1,50 @@
+#!/bin/bash
+#
+# Open an iTerm2 tab in a directory and optionally run a command there.
+#
+# Usage: iterm-run <directory> [command ...]
+#
+# With no command the tab is left as a shell in that directory. Each call gets a
+# fresh tab: reusing one risks typing into a session that is already busy.
+
+set -eu
+
+if [ $# -lt 1 ]; then
+  echo "usage: iterm-run <directory> [command ...]" >&2
+  exit 64
+fi
+
+dir=$1
+shift
+
+if [ ! -d "$dir" ]; then
+  echo "iterm-run: no such directory: $dir" >&2
+  exit 66
+fi
+
+dir=$(cd "$dir" && pwd)
+
+line="cd -- $(printf '%q' "$dir")"
+if [ $# -gt 0 ]; then
+  line="$line &&"
+  for arg in "$@"; do
+    line="$line $(printf '%q' "$arg")"
+  done
+fi
+
+escaped=$(printf '%s' "$line" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
+
+osascript <<EOF
+tell application "iTerm2"
+  activate
+  if (count of windows) = 0 then
+    set theWindow to (create window with default profile)
+    set theTab to current tab of theWindow
+  else
+    tell current window
+      set theTab to (create tab with default profile)
+    end tell
+  end if
+  tell current session of theTab to write text "$escaped"
+end tell
+EOF

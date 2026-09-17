@@ -2,9 +2,7 @@ import {
   Action,
   ActionPanel,
   Alert,
-  Color,
   confirmAlert,
-  closeMainWindow,
   Icon,
   List,
   showToast,
@@ -14,6 +12,7 @@ import {
 import { usePromise } from "@raycast/utils";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { worktreeAccessories } from "../lib/accessories";
 import { inspectDevServers } from "../lib/devServers";
 import { findRepos } from "../lib/repos";
 import { RootDropdown, useRoots } from "../lib/useRoots";
@@ -25,6 +24,7 @@ import {
   openInTerminal,
   openUrl,
   openReview,
+  runAndClose,
 } from "../lib/run";
 import {
   expandHome,
@@ -37,19 +37,6 @@ import { PhoneQrDetail } from "./PhoneQrDetail";
 import { ScriptList } from "./ScriptList";
 
 type Mode = "manage" | "scripts" | "phone-qr";
-
-async function runAndClose(action: () => Promise<void>, failureTitle: string) {
-  try {
-    await action();
-    await closeMainWindow();
-  } catch (error) {
-    await showToast({
-      style: Toast.Style.Failure,
-      title: failureTitle,
-      message: errorMessage(error),
-    });
-  }
-}
 
 export function WorktreeList({ mode }: { mode: Mode }) {
   const selection = useRoots();
@@ -114,21 +101,6 @@ export function WorktreeList({ mode }: { mode: Mode }) {
         message: errorMessage(error),
       });
     }
-  }
-
-  function accessories(worktree: Worktree) {
-    const tags = [];
-    const port = servers?.frontendPorts.get(worktree.path);
-    if (port !== undefined) {
-      tags.push({ tag: { value: `:${port}`, color: Color.Green } });
-    }
-    if (worktree.isMain) {
-      tags.push({ tag: { value: "main", color: Color.SecondaryText } });
-    }
-    if (worktree.upstreamGone) {
-      tags.push({ tag: { value: "branch gone", color: Color.Red } });
-    }
-    return [...tags, { text: worktree.branch }];
   }
 
   function actionsFor(worktree: Worktree) {
@@ -314,7 +286,7 @@ export function WorktreeList({ mode }: { mode: Mode }) {
               title={worktree.name}
               keywords={[repo.name, worktree.branch]}
               icon={worktree.isMain ? Icon.House : Icon.Folder}
-              accessories={accessories(worktree)}
+              accessories={worktreeAccessories(worktree, servers)}
               actions={actionsFor(worktree)}
             />
           ))}

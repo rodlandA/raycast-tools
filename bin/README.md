@@ -79,3 +79,19 @@ Each argument is quoted separately, so a pipeline or `&&` has to go through
 already busy would land the text in whatever is running there.
 
 The [worktrees](../extensions/worktrees) extension uses this to run a worktree's scripts.
+
+## worktree-run
+
+Picks one of a repository's worktrees in Raycast, then runs a script there.
+
+```bash
+worktree-run ~/Dev/myrepo ./run-dev.sh
+```
+
+It opens **Run Script** from the [worktrees](../extensions/worktrees) extension
+narrowed to that repository, listing only the worktrees that have the script.
+Wrap it in a Raycast script command and one command runs the same script in
+whichever worktree you pick.
+
+Raycast asks before a deeplink starts a command. Choose **Always Open Command**
+and it stops asking.

@@ -1,28 +1,13 @@
-import {
-  Action,
-  ActionPanel,
-  closeMainWindow,
-  Icon,
-  List,
-  showToast,
-  Toast,
-} from "@raycast/api";
+import { Action, ActionPanel, Icon, List } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
-import { errorMessage } from "../lib/exec";
-import { openInTerminal } from "../lib/run";
+import { openInTerminal, runAndClose } from "../lib/run";
 import { listRunnables, Runnable } from "../lib/scripts";
 
-async function start(item: Runnable) {
-  try {
-    await openInTerminal(item.cwd, item.command);
-    await closeMainWindow();
-  } catch (error) {
-    await showToast({
-      style: Toast.Style.Failure,
-      title: "Could not start",
-      message: errorMessage(error),
-    });
-  }
+function start(item: Runnable) {
+  return runAndClose(
+    () => openInTerminal(item.cwd, item.command),
+    "Could not start",
+  );
 }
 
 export function ScriptList({

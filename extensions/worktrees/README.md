@@ -40,6 +40,10 @@ scripts is the main action.
 
 <img src="../../docs/run-script.png" alt="The npm and shell scripts of a worktree" width="640">
 
+Started with a `repo` and a `script` in its launch context, it skips the script
+list: pick a worktree and that script runs.
+[`worktree-run`](../../bin/README.md#worktree-run) builds the deeplink.
+
 **Pull Requests** — pick a repository to see its open pull requests, each tagged
 `passing`, `failing` or `running` from its checks.
 

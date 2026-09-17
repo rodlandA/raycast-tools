@@ -13,7 +13,7 @@ Claude Code sessions at once. Take what you want.
 | **[Worktrees](extensions/worktrees)** | Every worktree of every repository you have, one keystroke from VS Code, a terminal or its pull request | `./install.sh worktrees` |
 | **[My Commands](extensions/my-commands)** | All the Raycast script commands, extensions and shell scripts you made yourself, in one searchable list | `./install.sh my-commands` |
 | **[Claude Panes & Claude Sessions](script-commands)** | Open a grid of Claude sessions for a project, or see which ones are running | [add a folder in Raycast](#raycast-script-commands) |
-| **[cl, claude-sessions, iterm-run](bin)** | The same from the terminal, plus opening an iTerm tab anywhere | `./install.sh cl` |
+| **[cl, claude-sessions, iterm-run, worktree-run](bin)** | The same from the terminal, plus opening an iTerm tab anywhere and running a script in a picked worktree | `./install.sh cl` |
 
 ## Install
 

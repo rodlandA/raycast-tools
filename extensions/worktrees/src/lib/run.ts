@@ -1,6 +1,22 @@
-import { open } from "@raycast/api";
-import { exec } from "./exec";
+import { closeMainWindow, open, showToast, Toast } from "@raycast/api";
+import { errorMessage, exec } from "./exec";
 import { hasHelper, helperPath } from "./helpers";
+
+export async function runAndClose(
+  action: () => Promise<void>,
+  failureTitle: string,
+) {
+  try {
+    await action();
+    await closeMainWindow();
+  } catch (error) {
+    await showToast({
+      style: Toast.Style.Failure,
+      title: failureTitle,
+      message: errorMessage(error),
+    });
+  }
+}
 
 export async function openInEditor(dir: string): Promise<void> {
   await exec("code", [dir]);

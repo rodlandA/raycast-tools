@@ -58,7 +58,7 @@ function markdown(reading: Reading, worktree: string): string {
   return [
     warnings(reading, worktree),
     "## Step 1 — accept the certificate",
-    "Once per phone, per network. Tap through the warning until the API documentation loads.",
+    "Once per phone, and again on each new network unless this Mac is on a tailnet. Tap through the warning until the API documentation loads.",
     `![Certificate](${qr.certImage}?raycast-width=${QR_WIDTH})`,
     "## Step 2 — open the app",
     `![App](${qr.appImage}?raycast-width=${QR_WIDTH})`,

@@ -10,6 +10,8 @@ export interface DevServerSnapshot {
   frontendPorts: Map<string, number>;
   /** Worktree path owning the backend HTTPS port, if anything holds it. */
   backendWorktree?: string;
+  /** Worktrees whose port is a backend serving the app itself over plain HTTP. */
+  selfServing: Set<string>;
 }
 
 // lsof exits non-zero when nothing matches, which is an empty result, not a fault.
@@ -57,9 +59,30 @@ function record(snapshot: DevServerSnapshot, cwd: string, ports: number[]) {
   }
 }
 
+// A backend started with --port binds one HTTP port and serves the built app on it.
+function recordSelfServing(
+  snapshot: DevServerSnapshot,
+  cwd: string,
+  ports: number[],
+) {
+  const worktree = dirname(cwd);
+  const isSinglePort = new Set(ports).size === 1;
+  if (
+    basename(cwd) === BACKEND_DIR &&
+    isSinglePort &&
+    !snapshot.frontendPorts.has(worktree)
+  ) {
+    snapshot.frontendPorts.set(worktree, ports[0]);
+    snapshot.selfServing.add(worktree);
+  }
+}
+
 /** One lsof pass over every listening socket, mapped back to the worktree that owns it. */
 export async function inspectDevServers(): Promise<DevServerSnapshot> {
-  const snapshot: DevServerSnapshot = { frontendPorts: new Map() };
+  const snapshot: DevServerSnapshot = {
+    frontendPorts: new Map(),
+    selfServing: new Set(),
+  };
   const listeners = namesByPid(
     await lsof(["-nP", "-iTCP", "-sTCP:LISTEN", "-Fpn"]),
   );
@@ -71,11 +94,13 @@ export async function inspectDevServers(): Promise<DevServerSnapshot> {
   const cwds = namesByPid(
     await lsof(["-a", "-p", pids.join(","), "-d", "cwd", "-Fpn"]),
   );
-  for (const [pid, addresses] of listeners) {
+  const listening = [...listeners].flatMap(([pid, addresses]) => {
     const cwd = cwds.get(pid)?.[0];
-    if (cwd !== undefined) {
-      record(snapshot, cwd, portsOf(addresses));
-    }
-  }
+    return cwd === undefined ? [] : [{ cwd, ports: portsOf(addresses) }];
+  });
+  listening.forEach(({ cwd, ports }) => record(snapshot, cwd, ports));
+  listening.forEach(({ cwd, ports }) =>
+    recordSelfServing(snapshot, cwd, ports),
+  );
   return snapshot;
 }

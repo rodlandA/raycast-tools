@@ -18,6 +18,7 @@ interface Reading {
   qr: PhoneQr;
   port: number;
   running: boolean;
+  selfServing: boolean;
   backendWorktree?: string;
 }
 
@@ -29,6 +30,7 @@ async function read(worktree: string, repoPath: string): Promise<Reading> {
     qr: await phoneQr(repoPath, port),
     port,
     running: running !== undefined,
+    selfServing: servers.selfServing.has(worktree),
     backendWorktree: servers.backendWorktree,
   };
 }
@@ -55,6 +57,13 @@ function warnings(
 
 function markdown(reading: Reading, worktree: string): string {
   const { qr } = reading;
+  if (reading.selfServing) {
+    return [
+      "This worktree's backend serves the app itself over plain HTTP, so there is no certificate to accept.",
+      "## Open the app",
+      `![App](${qr.appImage}?raycast-width=${QR_WIDTH})`,
+    ].join("\n\n");
+  }
   return [
     warnings(reading, worktree),
     "## Step 1 — accept the certificate",
@@ -68,7 +77,7 @@ function markdown(reading: Reading, worktree: string): string {
 }
 
 function metadata(reading: Reading, name: string) {
-  const { qr, running, port } = reading;
+  const { qr, running, port, selfServing } = reading;
   return (
     <Detail.Metadata>
       <Detail.Metadata.Label title="Worktree" text={name} />
@@ -80,7 +89,9 @@ function metadata(reading: Reading, name: string) {
       </Detail.Metadata.TagList>
       <Detail.Metadata.Label title="Address" text={qr.ip} />
       <Detail.Metadata.Separator />
-      <Detail.Metadata.Label title="Certificate" text={qr.certUrl} />
+      {!selfServing && (
+        <Detail.Metadata.Label title="Certificate" text={qr.certUrl} />
+      )}
       <Detail.Metadata.Label title="App" text={qr.appUrl} />
     </Detail.Metadata>
   );
@@ -130,7 +141,7 @@ export function PhoneQrDetail({
               shortcut={Keyboard.Shortcut.Common.Copy}
             />
           )}
-          {data !== undefined && (
+          {data !== undefined && !data.selfServing && (
             <Action.CopyToClipboard
               title="Copy Certificate URL"
               content={data.qr.certUrl}

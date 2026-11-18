@@ -8,58 +8,66 @@ import {
 } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
 import { basename } from "node:path";
-import { inspectDevServers } from "../lib/devServers";
+import { inspectDevServers, Scheme } from "../lib/devServers";
 import { errorMessage } from "../lib/exec";
 import { DEFAULT_FRONTEND_PORT, phoneQr, PhoneQr } from "../lib/phoneQr";
 
 const QR_WIDTH = 170;
 
+const SELF_SERVING_NOTE: Record<Scheme, string> = {
+  http: "This worktree's backend serves the app itself over plain HTTP, so there is no certificate to accept.",
+  https:
+    "This worktree's backend serves the app itself over HTTPS. Tap through the certificate warning the first time on each phone.",
+};
+
 interface Reading {
   qr: PhoneQr;
   port: number;
   running: boolean;
-  selfServing: boolean;
-  backendWorktree?: string;
+  selfServing?: Scheme;
+  backend?: { worktree: string; httpsPort: number };
 }
 
 async function read(worktree: string, repoPath: string): Promise<Reading> {
   const servers = await inspectDevServers();
   const running = servers.frontendPorts.get(worktree);
   const port = running ?? DEFAULT_FRONTEND_PORT;
+  const selfServing = servers.selfServing.get(worktree);
   return {
-    qr: await phoneQr(repoPath, port),
+    qr: await phoneQr(repoPath, {
+      port,
+      https: selfServing === "https",
+      backendHttpsPort: servers.backend?.httpsPort,
+    }),
     port,
     running: running !== undefined,
-    selfServing: servers.selfServing.has(worktree),
-    backendWorktree: servers.backendWorktree,
+    selfServing,
+    backend: servers.backend,
   };
 }
 
-function warnings(
-  { running, port, backendWorktree }: Reading,
-  worktree: string,
-) {
+function warnings({ running, port, backend }: Reading, worktree: string) {
   const lines: string[] = [];
   if (!running) {
     lines.push(
       `> ⚠️ No dev server is serving this worktree — falling back to port ${port}.`,
     );
   }
-  if (backendWorktree === undefined) {
-    lines.push("> ⚠️ Nothing holds port 5234, so step 1 will not load.");
-  } else if (backendWorktree !== worktree) {
+  if (backend === undefined) {
+    lines.push("> ⚠️ No backend answers HTTPS, so step 1 will not load.");
+  } else if (backend.worktree !== worktree) {
     lines.push(
-      `> ℹ️ The backend on 5234 is running from ${basename(backendWorktree)}.`,
+      `> ℹ️ The backend on ${backend.httpsPort} is running from ${basename(backend.worktree)}.`,
     );
   }
   return lines.join("\n>\n");
 }
 
 function markdown(reading: Reading, worktree: string): string {
-  const { qr } = reading;
-  if (reading.selfServing) {
+  const { qr, selfServing } = reading;
+  if (selfServing !== undefined) {
     return [
-      "This worktree's backend serves the app itself over plain HTTP, so there is no certificate to accept.",
+      SELF_SERVING_NOTE[selfServing],
       "## Open the app",
       `![App](${qr.appImage}?raycast-width=${QR_WIDTH})`,
     ].join("\n\n");
@@ -89,7 +97,7 @@ function metadata(reading: Reading, name: string) {
       </Detail.Metadata.TagList>
       <Detail.Metadata.Label title="Address" text={qr.ip} />
       <Detail.Metadata.Separator />
-      {!selfServing && (
+      {selfServing === undefined && (
         <Detail.Metadata.Label title="Certificate" text={qr.certUrl} />
       )}
       <Detail.Metadata.Label title="App" text={qr.appUrl} />
@@ -141,7 +149,7 @@ export function PhoneQrDetail({
               shortcut={Keyboard.Shortcut.Common.Copy}
             />
           )}
-          {data !== undefined && !data.selfServing && (
+          {data !== undefined && data.selfServing === undefined && (
             <Action.CopyToClipboard
               title="Copy Certificate URL"
               content={data.qr.certUrl}

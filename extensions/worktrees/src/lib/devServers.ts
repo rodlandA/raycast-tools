@@ -1,17 +1,24 @@
 import { basename, dirname } from "node:path";
 import { exec } from "./exec";
 
-const BACKEND_HTTPS_PORT = 5234;
 const FRONTEND_DIR = "Frontend";
 const BACKEND_DIR = "Backend";
+const PROBE_SECONDS = "1";
+
+export type Scheme = "http" | "https";
 
 export interface DevServerSnapshot {
   /** Worktree path to the port its dev server is serving. */
   frontendPorts: Map<string, number>;
-  /** Worktree path owning the backend HTTPS port, if anything holds it. */
-  backendWorktree?: string;
-  /** Worktrees whose port is a backend serving the app itself over plain HTTP. */
-  selfServing: Set<string>;
+  /** Worktree path to the port its backend answers TLS on. */
+  backendHttpsPorts: Map<string, number>;
+  /** Worktrees whose backend serves the app itself, and over which scheme. */
+  selfServing: Map<string, Scheme>;
+}
+
+interface Probe {
+  tls: boolean;
+  servesApp: boolean;
 }
 
 // lsof exits non-zero when nothing matches, which is an empty result, not a fault.
@@ -40,40 +47,63 @@ function namesByPid(stdout: string): Map<number, string[]> {
 }
 
 function portsOf(addresses: string[]): number[] {
-  return addresses
+  const ports = addresses
     .map((address) => Number(address.split(":").pop()))
     .filter((port) => Number.isInteger(port));
+  return [...new Set(ports)];
 }
 
-function record(snapshot: DevServerSnapshot, cwd: string, ports: number[]) {
-  if (ports.length === 0) {
-    return;
-  }
-  if (basename(cwd) === FRONTEND_DIR) {
-    const worktree = dirname(cwd);
-    const known = snapshot.frontendPorts.get(worktree) ?? Infinity;
-    snapshot.frontendPorts.set(worktree, Math.min(known, ...ports));
-  }
-  if (basename(cwd) === BACKEND_DIR && ports.includes(BACKEND_HTTPS_PORT)) {
-    snapshot.backendWorktree = dirname(cwd);
+// curl reports 000 when no response arrived, which for https means no TLS on that port.
+async function request(scheme: Scheme, port: number) {
+  try {
+    const out = await exec("curl", [
+      "-sk",
+      "-o",
+      "/dev/null",
+      "-m",
+      PROBE_SECONDS,
+      "-w",
+      "%{http_code} %{content_type}",
+      `${scheme}://127.0.0.1:${port}/`,
+    ]);
+    return out.trim();
+  } catch (error) {
+    return ((error as { stdout?: string }).stdout ?? "000").trim();
   }
 }
 
-// A backend started with --port binds one HTTP port and serves the built app on it.
-function recordSelfServing(
+function isApp(response: string): boolean {
+  return response.startsWith("200 text/html");
+}
+
+async function probe(port: number): Promise<Probe> {
+  const https = await request("https", port);
+  if (!https.startsWith("000")) {
+    return { tls: true, servesApp: isApp(https) };
+  }
+  return { tls: false, servesApp: isApp(await request("http", port)) };
+}
+
+async function recordBackend(
   snapshot: DevServerSnapshot,
-  cwd: string,
+  worktree: string,
   ports: number[],
 ) {
-  const worktree = dirname(cwd);
-  const isSinglePort = new Set(ports).size === 1;
-  if (
-    basename(cwd) === BACKEND_DIR &&
-    isSinglePort &&
-    !snapshot.frontendPorts.has(worktree)
-  ) {
-    snapshot.frontendPorts.set(worktree, ports[0]);
-    snapshot.selfServing.add(worktree);
+  const probes = await Promise.all(
+    ports.map(async (port) => ({ port, ...(await probe(port)) })),
+  );
+  const tls = probes.find((p) => p.tls);
+  if (tls !== undefined) {
+    snapshot.backendHttpsPorts.set(worktree, tls.port);
+  }
+  if (snapshot.frontendPorts.has(worktree)) {
+    return;
+  }
+  const app =
+    probes.find((p) => p.servesApp && p.tls) ?? probes.find((p) => p.servesApp);
+  if (app !== undefined) {
+    snapshot.frontendPorts.set(worktree, app.port);
+    snapshot.selfServing.set(worktree, app.tls ? "https" : "http");
   }
 }
 
@@ -81,7 +111,8 @@ function recordSelfServing(
 export async function inspectDevServers(): Promise<DevServerSnapshot> {
   const snapshot: DevServerSnapshot = {
     frontendPorts: new Map(),
-    selfServing: new Set(),
+    backendHttpsPorts: new Map(),
+    selfServing: new Map(),
   };
   const listeners = namesByPid(
     await lsof(["-nP", "-iTCP", "-sTCP:LISTEN", "-Fpn"]),
@@ -96,11 +127,19 @@ export async function inspectDevServers(): Promise<DevServerSnapshot> {
   );
   const listening = [...listeners].flatMap(([pid, addresses]) => {
     const cwd = cwds.get(pid)?.[0];
-    return cwd === undefined ? [] : [{ cwd, ports: portsOf(addresses) }];
+    const ports = portsOf(addresses);
+    return cwd === undefined || ports.length === 0 ? [] : [{ cwd, ports }];
   });
-  listening.forEach(({ cwd, ports }) => record(snapshot, cwd, ports));
-  listening.forEach(({ cwd, ports }) =>
-    recordSelfServing(snapshot, cwd, ports),
-  );
+  for (const { cwd, ports } of listening) {
+    if (basename(cwd) === FRONTEND_DIR) {
+      const worktree = dirname(cwd);
+      const known = snapshot.frontendPorts.get(worktree) ?? Infinity;
+      snapshot.frontendPorts.set(worktree, Math.min(known, ...ports));
+    }
+  }
+  const backends = listening.filter(({ cwd }) => basename(cwd) === BACKEND_DIR);
+  for (const { cwd, ports } of backends) {
+    await recordBackend(snapshot, dirname(cwd), ports);
+  }
   return snapshot;
 }

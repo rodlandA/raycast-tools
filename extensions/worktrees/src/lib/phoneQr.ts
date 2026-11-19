@@ -9,6 +9,14 @@ const QR_PIXELS = 512;
 const CACHE_DIR = "Library/Caches/worktrees-phone-qr";
 
 export const DEFAULT_FRONTEND_PORT = 3000;
+const DEFAULT_BACKEND_HTTPS_PORT = 5234;
+
+export interface PhoneQrTarget {
+  port: number;
+  /** The backend serves the app itself over HTTPS on `port`. */
+  https: boolean;
+  backendHttpsPort?: number;
+}
 
 export interface PhoneQr {
   ip: string;
@@ -40,17 +48,37 @@ async function renderQr(name: string, url: string): Promise<string> {
   return `~/${CACHE_DIR}/${file}`;
 }
 
+// Flags only where they differ from the defaults, so a checkout whose phone-qr.sh predates them still works.
+function scriptArgs({
+  port,
+  https,
+  backendHttpsPort,
+}: PhoneQrTarget): string[] {
+  const args = ["--urls"];
+  if (https) {
+    args.push("--https");
+  }
+  if (
+    backendHttpsPort !== undefined &&
+    backendHttpsPort !== DEFAULT_BACKEND_HTTPS_PORT
+  ) {
+    args.push("--backend-port", String(backendHttpsPort));
+  }
+  args.push(String(port));
+  return args;
+}
+
 /**
  * Builds the two phone URLs by asking the repository's own phone-qr.sh, so the
  * addresses stay defined in one place, and renders each as a PNG.
  */
 export async function phoneQr(
   repoPath: string,
-  port: number,
+  target: PhoneQrTarget,
 ): Promise<PhoneQr> {
   const root = expandHome(repoPath);
   const script = join(root, "scripts", "phone-qr.sh");
-  const values = parseUrls(await exec(script, ["--urls", String(port)], root));
+  const values = parseUrls(await exec(script, scriptArgs(target), root));
 
   const ip = values.get("IP");
   const certUrl = values.get("CERT_URL");

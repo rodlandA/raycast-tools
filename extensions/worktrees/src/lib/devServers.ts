@@ -10,8 +10,8 @@ export type Scheme = "http" | "https";
 export interface DevServerSnapshot {
   /** Worktree path to the port its dev server is serving. */
   frontendPorts: Map<string, number>;
-  /** The first backend found answering TLS, and the port it answers on. */
-  backend?: { worktree: string; httpsPort: number };
+  /** Worktree path to the port its backend answers TLS on. */
+  backendHttpsPorts: Map<string, number>;
   /** Worktrees whose backend serves the app itself, and over which scheme. */
   selfServing: Map<string, Scheme>;
 }
@@ -93,8 +93,8 @@ async function recordBackend(
     ports.map(async (port) => ({ port, ...(await probe(port)) })),
   );
   const tls = probes.find((p) => p.tls);
-  if (tls !== undefined && snapshot.backend === undefined) {
-    snapshot.backend = { worktree, httpsPort: tls.port };
+  if (tls !== undefined) {
+    snapshot.backendHttpsPorts.set(worktree, tls.port);
   }
   if (snapshot.frontendPorts.has(worktree)) {
     return;
@@ -111,6 +111,7 @@ async function recordBackend(
 export async function inspectDevServers(): Promise<DevServerSnapshot> {
   const snapshot: DevServerSnapshot = {
     frontendPorts: new Map(),
+    backendHttpsPorts: new Map(),
     selfServing: new Map(),
   };
   const listeners = namesByPid(

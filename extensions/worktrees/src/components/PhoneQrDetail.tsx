@@ -28,21 +28,37 @@ interface Reading {
   backend?: { worktree: string; httpsPort: number };
 }
 
+// This worktree's own backend first; any other one still gets a certificate step.
+function pickBackend(
+  ports: Map<string, number>,
+  worktree: string,
+): Reading["backend"] {
+  const own = ports.get(worktree);
+  if (own !== undefined) {
+    return { worktree, httpsPort: own };
+  }
+  const [first] = ports;
+  return first === undefined
+    ? undefined
+    : { worktree: first[0], httpsPort: first[1] };
+}
+
 async function read(worktree: string, repoPath: string): Promise<Reading> {
   const servers = await inspectDevServers();
   const running = servers.frontendPorts.get(worktree);
   const port = running ?? DEFAULT_FRONTEND_PORT;
   const selfServing = servers.selfServing.get(worktree);
+  const backend = pickBackend(servers.backendHttpsPorts, worktree);
   return {
     qr: await phoneQr(repoPath, {
       port,
       https: selfServing === "https",
-      backendHttpsPort: servers.backend?.httpsPort,
+      backendHttpsPort: backend?.httpsPort,
     }),
     port,
     running: running !== undefined,
     selfServing,
-    backend: servers.backend,
+    backend,
   };
 }
 

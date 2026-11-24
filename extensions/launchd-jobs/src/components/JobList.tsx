@@ -67,8 +67,11 @@ function statusText(job: Job): string {
   if (job.state === "running") {
     return `Running, PID ${job.pid}`;
   }
-  if (job.lastExit === undefined) {
+  if (!job.loaded) {
     return "Not loaded";
+  }
+  if (job.lastExit === undefined) {
+    return "Not run yet";
   }
   return job.lastExit === 0
     ? "Last run OK"

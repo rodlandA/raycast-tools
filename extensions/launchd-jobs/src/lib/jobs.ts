@@ -39,7 +39,7 @@ export interface Job {
 
 interface LoadedJob {
   pid?: number;
-  lastExit: number;
+  lastExit?: number;
 }
 
 const LOG_TAIL_BYTES = 16 * 1024;
@@ -64,7 +64,7 @@ async function loadedJobs(): Promise<Map<string, LoadedJob>> {
     }
     jobs.set(label, {
       pid: pid === "-" ? undefined : Number(pid),
-      lastExit: Number(status),
+      lastExit: status === "-" ? undefined : Number(status),
     });
   }
   return jobs;
@@ -115,7 +115,7 @@ function stateOf(loaded?: LoadedJob): JobState {
   if (loaded.pid !== undefined) {
     return "running";
   }
-  return loaded.lastExit === 0 ? "idle" : "failed";
+  return (loaded.lastExit ?? 0) === 0 ? "idle" : "failed";
 }
 
 async function toJob(

@@ -10,15 +10,17 @@ actions to run it now, reload it after editing the plist, or open the plist.
 
 ## What it shows
 
-Jobs are grouped as **Needs Attention** (last run failed, or not loaded),
-**Running** and **Scheduled**. The detail pane has the schedule in words
+Jobs whose last run failed, or that are not loaded, come first under **Needs
+Attention**. The rest are grouped by project: the label segment after a matching
+prefix, so `com.example.backup.nightly` is `nightly` under `backup`, or the
+reverse-DNS owner (`com.google`) when no prefix matches. The detail pane has the schedule in words
 (`Mon–Fri 16:00`, `every 5 min`, `kept running`), the command, the log path and
 the last lines of the log. Status comes from `launchctl list`, so a failed run
 stays red until the job runs again and succeeds.
 
 Set **Label Prefixes** in the preferences to see only your own jobs, e.g.
-`com.example.,org.me.` — the matching prefix is also dropped from the names in
-the list. Left empty, every job in `~/Library/LaunchAgents` is shown.
+`com.example.,org.me.`. Naming your jobs `<prefix>.<project>.<job>` is what
+makes the grouping useful. Left empty, every job in `~/Library/LaunchAgents` is shown.
 
 ## Actions
 

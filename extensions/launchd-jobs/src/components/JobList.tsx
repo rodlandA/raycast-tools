@@ -22,6 +22,7 @@ import {
   reload,
   runNow,
   shortName,
+  groupOf,
 } from "../lib/jobs";
 import { openInEditor } from "../lib/run";
 import { LogView } from "./LogView";
@@ -32,35 +33,34 @@ interface Preferences {
 
 const STATES: Record<
   JobState,
-  { section: string; tag: string; color: Color; icon: Icon }
+  { attention: boolean; tag: string; color: Color; icon: Icon }
 > = {
   failed: {
-    section: "Needs Attention",
+    attention: true,
     tag: "Failed",
     color: Color.Red,
     icon: Icon.XMarkCircle,
   },
   unloaded: {
-    section: "Needs Attention",
+    attention: true,
     tag: "Not loaded",
     color: Color.Orange,
     icon: Icon.CircleDisabled,
   },
   running: {
-    section: "Running",
+    attention: false,
     tag: "Running",
     color: Color.Green,
     icon: Icon.CircleProgress50,
   },
   idle: {
-    section: "Scheduled",
+    attention: false,
     tag: "OK",
     color: Color.SecondaryText,
     icon: Icon.CheckCircle,
   },
 };
 
-const SECTIONS = ["Needs Attention", "Running", "Scheduled"];
 const PREVIEW_LINES = 30;
 
 function statusText(job: Job): string {
@@ -241,32 +241,40 @@ export function JobList() {
     );
   }
 
+  const attention = jobs.filter((job) => STATES[job.state].attention);
+  const groups = new Map<string, Job[]>();
+  for (const job of jobs.filter((j) => !STATES[j.state].attention)) {
+    const { group } = groupOf(job.label, prefixes);
+    groups.set(group, [...(groups.get(group) ?? []), job]);
+  }
+
+  function item(job: Job, title: string) {
+    const state = STATES[job.state];
+    return (
+      <List.Item
+        key={job.label}
+        title={title}
+        keywords={[job.label]}
+        icon={{ source: state.icon, tintColor: state.color }}
+        accessories={[{ tag: { value: state.tag, color: state.color } }]}
+        detail={<JobDetail job={job} />}
+        actions={actionsFor(job)}
+      />
+    );
+  }
+
   return (
     <List
       isLoading={isLoading}
       isShowingDetail
       searchBarPlaceholder="Filter jobs"
     >
-      {SECTIONS.map((section) => (
-        <List.Section key={section} title={section}>
-          {jobs
-            .filter((job) => STATES[job.state].section === section)
-            .map((job) => {
-              const state = STATES[job.state];
-              return (
-                <List.Item
-                  key={job.label}
-                  title={shortName(job.label, prefixes)}
-                  keywords={[job.label]}
-                  icon={{ source: state.icon, tintColor: state.color }}
-                  accessories={[
-                    { tag: { value: state.tag, color: state.color } },
-                  ]}
-                  detail={<JobDetail job={job} />}
-                  actions={actionsFor(job)}
-                />
-              );
-            })}
+      <List.Section title="Needs Attention">
+        {attention.map((job) => item(job, shortName(job.label, prefixes)))}
+      </List.Section>
+      {[...groups.entries()].map(([group, members]) => (
+        <List.Section key={group} title={group}>
+          {members.map((job) => item(job, groupOf(job.label, prefixes).name))}
         </List.Section>
       ))}
     </List>

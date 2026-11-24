@@ -15,6 +15,11 @@ interface Plist extends Triggers {
   StandardErrorPath?: string;
 }
 
+export interface JobName {
+  group: string;
+  name: string;
+}
+
 export type JobState = "failed" | "unloaded" | "running" | "idle";
 
 export interface Job {
@@ -172,6 +177,16 @@ export async function listJobs(prefixes: string[]): Promise<Job[]> {
 export function shortName(label: string, prefixes: string[]): string {
   const prefix = prefixes.find((p) => label.startsWith(p) && label !== p);
   return prefix ? label.slice(prefix.length).replace(/^[.-]/, "") : label;
+}
+
+export function groupOf(label: string, prefixes: string[]): JobName {
+  const short = shortName(label, prefixes);
+  if (short !== label) {
+    const [group, ...rest] = short.split(".");
+    return { group, name: rest.length > 0 ? rest.join(".") : short };
+  }
+  const owner = label.split(".").slice(0, 2).join(".");
+  return { group: owner, name: label.slice(owner.length + 1) || label };
 }
 
 export function exitDescription(code: number): string {

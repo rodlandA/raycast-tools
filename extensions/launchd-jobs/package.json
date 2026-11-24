@@ -1,0 +1,49 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "launchd-jobs",
+  "title": "Launchd Jobs",
+  "description": "Your own launchd jobs in one list: schedule, last exit, log, and run or reload them",
+  "icon": "command-icon.png",
+  "author": "andreas",
+  "categories": [
+    "Developer Tools",
+    "System"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "launchd-jobs",
+      "title": "Launchd Jobs",
+      "description": "Status, schedule and log of the jobs in ~/Library/LaunchAgents",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "labelPrefixes",
+      "title": "Label Prefixes",
+      "description": "Show only jobs whose label starts with one of these. Leave empty to show every job in ~/Library/LaunchAgents. Comma-separated, e.g. com.example.,org.me.",
+      "type": "textfield",
+      "required": false,
+      "default": ""
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.104.0",
+    "@raycast/utils": "^1.19.1"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.0.4",
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.10",
+    "eslint": "^9.22.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "lint": "ray lint",
+    "fix-lint": "ray lint --fix"
+  }
+}

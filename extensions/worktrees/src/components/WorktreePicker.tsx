@@ -1,4 +1,12 @@
-import { Action, ActionPanel, Icon, List } from "@raycast/api";
+import {
+  Action,
+  ActionPanel,
+  Icon,
+  List,
+  showHUD,
+  showToast,
+  Toast,
+} from "@raycast/api";
 import { usePromise } from "@raycast/utils";
 import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -6,16 +14,44 @@ import { worktreeAccessories } from "../lib/accessories";
 import { inspectDevServers } from "../lib/devServers";
 import { errorMessage } from "../lib/exec";
 import { openInTerminal, runAndClose } from "../lib/run";
+import {
+  runScriptAction,
+  ScriptAction,
+  scriptActions,
+} from "../lib/scriptActions";
 import { expandHome, listWorktrees, Worktree } from "../lib/worktrees";
+
+type PickableWorktree = Worktree & { actions: ScriptAction[] };
 
 async function worktreesWith(
   repoPath: string,
   script: string,
-): Promise<Worktree[]> {
+): Promise<PickableWorktree[]> {
   const worktrees = await listWorktrees(repoPath);
-  return worktrees.filter((worktree) =>
+  const holding = worktrees.filter((worktree) =>
     existsSync(join(worktree.path, script)),
   );
+  return Promise.all(
+    holding.map(async (worktree) => ({
+      ...worktree,
+      actions: await scriptActions(worktree.path),
+    })),
+  );
+}
+
+async function runDeclared(worktree: string, action: ScriptAction) {
+  const toast = await showToast({
+    style: Toast.Style.Animated,
+    title: action.title,
+  });
+  try {
+    const output = await runScriptAction(worktree, action);
+    await toast.hide();
+    await showHUD(output || action.title);
+  } catch (error) {
+    toast.style = Toast.Style.Failure;
+    toast.message = errorMessage(error);
+  }
 }
 
 export function WorktreePicker({
@@ -78,6 +114,18 @@ export function WorktreePicker({
                   title="Copy Path"
                   content={worktree.path}
                 />
+                {worktree.actions.length > 0 && (
+                  <ActionPanel.Section title="From the Repository">
+                    {worktree.actions.map((action) => (
+                      <Action
+                        key={`${action.script} ${action.args.join(" ")}`}
+                        title={action.title}
+                        icon={Icon.Terminal}
+                        onAction={() => runDeclared(worktree.path, action)}
+                      />
+                    ))}
+                  </ActionPanel.Section>
+                )}
               </ActionPanel>
             }
           />

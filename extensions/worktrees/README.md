@@ -44,6 +44,17 @@ Started with a `repo` and a `script` in its launch context, it skips the script
 list: pick a worktree and that script runs.
 [`worktree-run`](../../bin/README.md#worktree-run) builds the deeplink.
 
+A repository can add its own actions to that worktree list, under ⌘K. Any
+`scripts/*.sh` may declare them in a comment, one per line — the title, a
+colon, then the arguments:
+
+```bash
+# @worktrees.action Start the Mock: mock
+```
+
+The action runs the script in the chosen worktree without opening a terminal,
+and shows its last line of output.
+
 **Pull Requests** — pick a repository to see its open pull requests, each tagged
 `passing`, `failing` or `running` from its checks.
 

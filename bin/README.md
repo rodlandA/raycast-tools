@@ -86,12 +86,14 @@ Picks one of a repository's worktrees in Raycast, then runs a script there.
 
 ```bash
 worktree-run ~/Dev/myrepo ./run-dev.sh
+worktree-run ~/Dev/myrepo ./run-dev.sh --verbose
 ```
 
 It opens **Run Script** from the [worktrees](../extensions/worktrees) extension
 narrowed to that repository, listing only the worktrees that have the script.
 Wrap it in a Raycast script command and one command runs the same script in
-whichever worktree you pick.
+whichever worktree you pick. Arguments after the script are passed to it, so
+two commands can start the same script with different flags.
 
 Raycast asks before a deeplink starts a command. Choose **Always Open Command**
 and it stops asking.

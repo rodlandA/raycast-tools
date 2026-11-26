@@ -2,7 +2,7 @@
 #
 # Pick one of a repository's worktrees in Raycast, then run a script there.
 #
-# Usage: worktree-run <repository> <script>
+# Usage: worktree-run <repository> <script> [argument ...]
 #
 # Opens Run Script from the worktrees extension narrowed to that repository, with
 # the script as the action. Raycast asks before a deeplink starts a command;
@@ -10,8 +10,8 @@
 
 set -eu
 
-if [ $# -ne 2 ]; then
-  echo "usage: worktree-run <repository> <script>" >&2
+if [ $# -lt 2 ]; then
+  echo "usage: worktree-run <repository> <script> [argument ...]" >&2
   exit 64
 fi
 
@@ -25,7 +25,7 @@ repo=$(cd "$1" && pwd)
 # JavaScript for Automation ships with macOS, so no jq or python is needed to encode.
 context=$(osascript -l JavaScript -e '
   function run(argv) {
-    return encodeURIComponent(JSON.stringify({ repo: argv[0], script: argv[1] }));
-  }' "$repo" "$2")
+    return encodeURIComponent(JSON.stringify({ repo: argv[0], script: argv[1], args: argv.slice(2) }));
+  }' "$repo" "${@:2}")
 
 open "raycast://extensions/andreas/worktrees/run-script?launchContext=$context"

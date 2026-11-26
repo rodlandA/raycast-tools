@@ -2,31 +2,33 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { exec } from "./exec";
 
-export interface ScriptAction {
+export interface ScriptVariant {
   title: string;
-  script: string;
   args: string[];
 }
 
-// A repository offers actions on its worktrees by declaring them in a script:
+export interface ScriptAction extends ScriptVariant {
+  script: string;
+}
+
+// A repository declares these in a script, one per line, as the title, a colon and the arguments:
 //   # @worktrees.action Start the mock: mock
-const DECLARATION = /^#\s*@worktrees\.action\s+([^:]+):\s*(.*)$/;
+//   # @worktrees.variant Sign-in on: --auth
+const ACTION = /^#\s*@worktrees\.action\s+([^:]+):\s*(.*)$/;
+const VARIANT = /^#\s*@worktrees\.variant\s+([^:]+):\s*(.*)$/;
 const SCRIPT_DIR = "scripts";
 
-async function declaredIn(
-  worktree: string,
-  name: string,
-): Promise<ScriptAction[]> {
-  const text = await readFile(join(worktree, SCRIPT_DIR, name), "utf8").catch(
-    () => "",
-  );
+async function declared(
+  path: string,
+  pattern: RegExp,
+): Promise<ScriptVariant[]> {
+  const text = await readFile(path, "utf8").catch(() => "");
   return text
     .split("\n")
-    .map((line) => line.match(DECLARATION))
+    .map((line) => line.match(pattern))
     .filter((match): match is RegExpMatchArray => match !== null)
     .map(([, title, args]) => ({
       title: title.trim(),
-      script: join(SCRIPT_DIR, name),
       args: args.trim().split(/\s+/).filter(Boolean),
     }));
 }
@@ -36,9 +38,20 @@ export async function scriptActions(worktree: string): Promise<ScriptAction[]> {
   const found = await Promise.all(
     names
       .filter((name) => name.endsWith(".sh"))
-      .map((name) => declaredIn(worktree, name)),
+      .map(async (name) => {
+        const script = join(SCRIPT_DIR, name);
+        const actions = await declared(join(worktree, script), ACTION);
+        return actions.map((action) => ({ ...action, script }));
+      }),
   );
   return found.flat();
+}
+
+export function scriptVariants(
+  worktree: string,
+  script: string,
+): Promise<ScriptVariant[]> {
+  return declared(join(worktree, script), VARIANT);
 }
 
 // The script's last line of output is what the toast reports.

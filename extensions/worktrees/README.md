@@ -55,6 +55,14 @@ colon, then the arguments:
 The action runs the script in the chosen worktree without opening a terminal,
 and shows its last line of output.
 
+The script being run can also offer variants of itself: the same script with
+extra arguments, run in a terminal like the main action. They sit right below
+it, so the first one is ⌘↵:
+
+```bash
+# @worktrees.variant Run with Sign-in: --auth
+```
+
 **Pull Requests** — pick a repository to see its open pull requests, each tagged
 `passing`, `failing` or `running` from its checks.
 

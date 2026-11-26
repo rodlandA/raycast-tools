@@ -18,10 +18,15 @@ import {
   runScriptAction,
   ScriptAction,
   scriptActions,
+  ScriptVariant,
+  scriptVariants,
 } from "../lib/scriptActions";
 import { expandHome, listWorktrees, Worktree } from "../lib/worktrees";
 
-type PickableWorktree = Worktree & { actions: ScriptAction[] };
+type PickableWorktree = Worktree & {
+  actions: ScriptAction[];
+  variants: ScriptVariant[];
+};
 
 async function worktreesWith(
   repoPath: string,
@@ -35,6 +40,7 @@ async function worktreesWith(
     holding.map(async (worktree) => ({
       ...worktree,
       actions: await scriptActions(worktree.path),
+      variants: await scriptVariants(worktree.path, script),
     })),
   );
 }
@@ -110,6 +116,23 @@ export function WorktreePicker({
                     )
                   }
                 />
+                {worktree.variants.map((variant) => (
+                  <Action
+                    key={variant.args.join(" ")}
+                    title={variant.title}
+                    icon={Icon.Play}
+                    onAction={() =>
+                      runAndClose(
+                        () =>
+                          openInTerminal(worktree.path, [
+                            script,
+                            ...variant.args,
+                          ]),
+                        "Could not start",
+                      )
+                    }
+                  />
+                ))}
                 <Action.CopyToClipboard
                   title="Copy Path"
                   content={worktree.path}

@@ -24,7 +24,7 @@ async function declared(
 ): Promise<ScriptVariant[]> {
   const text = await readFile(path, "utf8").catch(() => "");
   return text
-    .split("\n")
+    .split(/\r?\n/)
     .map((line) => line.match(pattern))
     .filter((match): match is RegExpMatchArray => match !== null)
     .map(([, title, args]) => ({

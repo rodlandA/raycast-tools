@@ -46,7 +46,8 @@ list: pick a worktree and that script runs.
 
 A repository can add its own actions to that worktree list, under ⌘K. Any
 `scripts/*.sh` may declare them in a comment, one per line — the title, a
-colon, then the arguments:
+colon, then the arguments. The title cannot contain a colon, and the arguments
+are split on spaces, with no quoting:
 
 ```bash
 # @worktrees.action Start the Mock: mock
@@ -55,9 +56,10 @@ colon, then the arguments:
 The action runs the script in the chosen worktree without opening a terminal,
 and shows its last line of output.
 
-The script being run can also offer variants of itself: the same script with
-extra arguments, run in a terminal like the main action. They sit right below
-it, so the first one is ⌘↵:
+When started with a script, the list also offers that script's own variants:
+the same script with extra arguments, run in a terminal like the main action,
+and declared the same way in the script itself. They sit right below it, so
+the first one is ⌘↵:
 
 ```bash
 # @worktrees.variant Run with Sign-in: --auth

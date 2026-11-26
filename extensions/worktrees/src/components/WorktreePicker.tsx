@@ -2,6 +2,7 @@ import {
   Action,
   ActionPanel,
   Icon,
+  Keyboard,
   List,
   showHUD,
   showToast,
@@ -118,7 +119,7 @@ export function WorktreePicker({
                 />
                 {worktree.variants.map((variant) => (
                   <Action
-                    key={variant.args.join(" ")}
+                    key={variant.title}
                     title={variant.title}
                     icon={Icon.Play}
                     onAction={() =>
@@ -136,6 +137,7 @@ export function WorktreePicker({
                 <Action.CopyToClipboard
                   title="Copy Path"
                   content={worktree.path}
+                  shortcut={Keyboard.Shortcut.Common.Copy}
                 />
                 {worktree.actions.length > 0 && (
                   <ActionPanel.Section title="From the Repository">

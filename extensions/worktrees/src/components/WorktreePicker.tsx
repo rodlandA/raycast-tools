@@ -45,7 +45,9 @@ async function runDeclared(worktree: string, action: ScriptAction) {
     title: action.title,
   });
   try {
-    await showHUD((await runScriptAction(worktree, action)) || action.title);
+    const output = await runScriptAction(worktree, action);
+    await toast.hide();
+    await showHUD(output || action.title);
   } catch (error) {
     toast.style = Toast.Style.Failure;
     toast.message = errorMessage(error);

@@ -2,6 +2,7 @@ import {
   Action,
   ActionPanel,
   Icon,
+  Keyboard,
   List,
   showHUD,
   showToast,
@@ -18,10 +19,15 @@ import {
   runScriptAction,
   ScriptAction,
   scriptActions,
+  ScriptVariant,
+  scriptVariants,
 } from "../lib/scriptActions";
 import { expandHome, listWorktrees, Worktree } from "../lib/worktrees";
 
-type PickableWorktree = Worktree & { actions: ScriptAction[] };
+type PickableWorktree = Worktree & {
+  actions: ScriptAction[];
+  variants: ScriptVariant[];
+};
 
 async function worktreesWith(
   repoPath: string,
@@ -35,6 +41,7 @@ async function worktreesWith(
     holding.map(async (worktree) => ({
       ...worktree,
       actions: await scriptActions(worktree.path),
+      variants: await scriptVariants(worktree.path, script),
     })),
   );
 }
@@ -57,11 +64,9 @@ async function runDeclared(worktree: string, action: ScriptAction) {
 export function WorktreePicker({
   repoPath,
   script,
-  args,
 }: {
   repoPath: string;
   script: string;
-  args: string[];
 }) {
   const { data, isLoading, error } = usePromise(worktreesWith, [
     repoPath,
@@ -69,15 +74,14 @@ export function WorktreePicker({
   ]);
   const { data: servers } = usePromise(inspectDevServers, []);
   const worktrees = data ?? [];
-  const command = [script, ...args].join(" ");
   const nothingFound =
     !isLoading && error === undefined && worktrees.length === 0;
 
   return (
     <List
       isLoading={isLoading}
-      navigationTitle={`Run ${command}`}
-      searchBarPlaceholder={`Pick a worktree to run ${command} in`}
+      navigationTitle={`Run ${script}`}
+      searchBarPlaceholder={`Pick a worktree to run ${script} in`}
     >
       {error !== undefined && (
         <List.EmptyView
@@ -108,14 +112,32 @@ export function WorktreePicker({
                   icon={Icon.Play}
                   onAction={() =>
                     runAndClose(
-                      () => openInTerminal(worktree.path, [script, ...args]),
+                      () => openInTerminal(worktree.path, [script]),
                       "Could not start",
                     )
                   }
                 />
+                {worktree.variants.map((variant) => (
+                  <Action
+                    key={variant.title}
+                    title={variant.title}
+                    icon={Icon.Play}
+                    onAction={() =>
+                      runAndClose(
+                        () =>
+                          openInTerminal(worktree.path, [
+                            script,
+                            ...variant.args,
+                          ]),
+                        "Could not start",
+                      )
+                    }
+                  />
+                ))}
                 <Action.CopyToClipboard
                   title="Copy Path"
                   content={worktree.path}
+                  shortcut={Keyboard.Shortcut.Common.Copy}
                 />
                 {worktree.actions.length > 0 && (
                   <ActionPanel.Section title="From the Repository">

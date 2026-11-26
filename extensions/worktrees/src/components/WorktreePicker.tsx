@@ -57,9 +57,11 @@ async function runDeclared(worktree: string, action: ScriptAction) {
 export function WorktreePicker({
   repoPath,
   script,
+  args,
 }: {
   repoPath: string;
   script: string;
+  args: string[];
 }) {
   const { data, isLoading, error } = usePromise(worktreesWith, [
     repoPath,
@@ -67,14 +69,15 @@ export function WorktreePicker({
   ]);
   const { data: servers } = usePromise(inspectDevServers, []);
   const worktrees = data ?? [];
+  const command = [script, ...args].join(" ");
   const nothingFound =
     !isLoading && error === undefined && worktrees.length === 0;
 
   return (
     <List
       isLoading={isLoading}
-      navigationTitle={`Run ${script}`}
-      searchBarPlaceholder={`Pick a worktree to run ${script} in`}
+      navigationTitle={`Run ${command}`}
+      searchBarPlaceholder={`Pick a worktree to run ${command} in`}
     >
       {error !== undefined && (
         <List.EmptyView
@@ -105,7 +108,7 @@ export function WorktreePicker({
                   icon={Icon.Play}
                   onAction={() =>
                     runAndClose(
-                      () => openInTerminal(worktree.path, [script]),
+                      () => openInTerminal(worktree.path, [script, ...args]),
                       "Could not start",
                     )
                   }
